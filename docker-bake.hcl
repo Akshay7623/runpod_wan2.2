@@ -15,22 +15,25 @@ variable "COMFYUI_VERSION" {
 }
 
 # ==========================================
-# OPTIMIZED CUDA 13.0 MINIMAL BASE SETTINGS
+# OPTIMIZED CUDA 12.6 MINIMAL BASE SETTINGS
 # ==========================================
 variable "BASE_IMAGE" {
-  default = "nvidia/cuda:13.0.0-base-ubuntu24.04"
+  default = "nvidia/cuda:12.6.3-base-ubuntu24.04"
 }
 
+# Leave this blank so the default installer does not conflict
 variable "CUDA_VERSION_FOR_COMFY" {
   default = ""
 }
 
+# Force the upgrade to get the latest FP8 kernels
 variable "ENABLE_PYTORCH_UPGRADE" {
   default = "true"
 }
 
+# Pull the highly optimized CUDA 12.4 PyTorch wheels
 variable "PYTORCH_INDEX_URL" {
-  default = "https://download.pytorch.org/whl/cu130"
+  default = "https://download.pytorch.org/whl/cu124"
 }
 
 variable "HUGGINGFACE_ACCESS_TOKEN" {
@@ -54,7 +57,7 @@ target "base" {
     CUDA_VERSION_FOR_COMFY = "${CUDA_VERSION_FOR_COMFY}"
     ENABLE_PYTORCH_UPGRADE = "${ENABLE_PYTORCH_UPGRADE}"
     PYTORCH_INDEX_URL = "${PYTORCH_INDEX_URL}"
-    # The MODEL_TYPE argument has been successfully removed from here
   }
-  tags = ["${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:${RELEASE_VERSION}-base-cu130"]
+  # Updated the tag to reflect the CUDA 12.4 PyTorch wheels
+  tags = ["${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:${RELEASE_VERSION}-base-cu124"]
 }
