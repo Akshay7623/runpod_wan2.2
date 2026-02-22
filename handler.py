@@ -185,6 +185,7 @@ def validate_input(job_input):
 
     # Validate 'images' in input, if provided
     images = job_input.get("images")
+    mediaId = job_input.get("mediaId")
     if images is not None:
         if not isinstance(images, list) or not all(
             "name" in image and "image" in image for image in images
@@ -195,7 +196,7 @@ def validate_input(job_input):
             )
 
     # Return validated data and no error
-    return {"workflow": workflow, "images": images}, None
+    return {"workflow": workflow, "images": images, "mediaId": mediaId }, None
 
 
 def check_server(url, retries=500, delay=50):
@@ -821,20 +822,18 @@ def handler(job):
     print(f"worker-comfyui - Job completed. Returning {len(output_data)} image(s).")
     
     if "images" in final_result:
-        for item in final_result["images"]:
-            if item.get("type") == "base64":
-                try:
-                    print(f"worker-comfyui - Uploading video to S3 as {media_id}.mp4...")
-                    s3_url = upload_base64_video_to_s3(item["data"], media_id)
-                    print(f"worker-comfyui - Successfully uploaded: {s3_url}")
-                except Exception as e:
-                    error_msg = f"Failed to upload video to S3: {e}"
-                    print(f"worker-comfyui - {error_msg}")
-                    if "errors" not in final_result:
-                        final_result["errors"] = []
-                    final_result["errors"].append(error_msg)
+        try:
+            if media_id is None:
+                media_id = str(uuid.uuid4())
+            item = final_result["images"][0]
+            item.get("type") == "base64"
+            print(f"worker-comfyui - Uploading video to S3 as {media_id}.mp4...")
+            s3_url = upload_base64_video_to_s3(item["data"], media_id)
+            print(f"worker-comfyui - Successfully uploaded: {s3_url}")
+        except Exception as e:
+            error_msg = f"Failed to upload video to S3: {e}"
+            print(f"worker-comfyui - {error_msg}")
     return final_result
-
 
 if __name__ == "__main__":
     print("worker-comfyui - Starting handler...")
