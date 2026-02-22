@@ -13,6 +13,8 @@ import uuid
 import tempfile
 import socket
 import traceback
+import base64
+import boto3
 
 # Time to wait between API check attempts in milliseconds
 COMFY_API_AVAILABLE_INTERVAL_MS = 50
@@ -38,6 +40,33 @@ COMFY_HOST = "127.0.0.1:8188"
 # Enforce a clean state after each job is done
 # see https://docs.runpod.io/docs/handler-additional-controls#refresh-worker
 REFRESH_WORKER = os.environ.get("REFRESH_WORKER", "false").lower() == "true"
+
+
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    region_name=os.environ.get('AWS_REGION', 'ap-south-1')
+)
+
+def upload_base64_video_to_s3(base64_data, media_id):
+    bucket_name = os.environ.get('BUCKET_NAME')
+    file_key = f"videos/{media_id}.mp4" 
+    
+    if "," in base64_data:
+        base64_data = base64_data.split(",")[1]
+        
+    video_bytes = base64.b64decode(base64_data)
+    
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=file_key,
+        Body=video_bytes,
+        ContentType='video/mp4' 
+    )
+    
+    region = os.environ.get('AWS_REGION', 'ap-south-1')
+    return f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"
 
 # ---------------------------------------------------------------------------
 # Helper: quick reachability probe of ComfyUI HTTP endpoint (port 8188)
@@ -487,6 +516,7 @@ def handler(job):
     """
     job_input = job["input"]
     job_id = job["id"]
+    
 
     # Make sure that the input is valid
     validated_data, error_message = validate_input(job_input)
@@ -496,6 +526,7 @@ def handler(job):
     # Extract validated data
     workflow = validated_data["workflow"]
     input_images = validated_data.get("images")
+    media_id = validated_data.get("mediaId")
 
     # Make sure that the ComfyUI HTTP API is available before proceeding
     if not check_server(
@@ -788,6 +819,20 @@ def handler(job):
         final_result["images"] = []
 
     print(f"worker-comfyui - Job completed. Returning {len(output_data)} image(s).")
+    
+    if "images" in final_result:
+        for item in final_result["images"]:
+            if item.get("type") == "base64":
+                try:
+                    print(f"worker-comfyui - Uploading video to S3 as {media_id}.mp4...")
+                    s3_url = upload_base64_video_to_s3(item["data"], media_id)
+                    print(f"worker-comfyui - Successfully uploaded: {s3_url}")
+                except Exception as e:
+                    error_msg = f"Failed to upload video to S3: {e}"
+                    print(f"worker-comfyui - {error_msg}")
+                    if "errors" not in final_result:
+                        final_result["errors"] = []
+                    final_result["errors"].append(error_msg)
     return final_result
 
 
