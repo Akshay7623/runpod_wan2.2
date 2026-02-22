@@ -33,7 +33,7 @@ variable "ENABLE_PYTORCH_UPGRADE" {
 
 # Pull the highly optimized CUDA 12.4 PyTorch wheels
 variable "PYTORCH_INDEX_URL" {
-  default = "https://download.pytorch.org/whl/cu124"
+  default = "https://download.pytorch.org/whl/cu128"
 }
 
 variable "HUGGINGFACE_ACCESS_TOKEN" {
